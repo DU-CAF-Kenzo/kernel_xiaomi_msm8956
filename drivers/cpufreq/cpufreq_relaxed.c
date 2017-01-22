@@ -18,7 +18,6 @@
 
 /* Relaxed version macros */
 #define RELAXED_VERSION_MAJOR			(1)
-#define RELAXED_VERSION_MINOR			(0)
 #define RELAXED_VERSION_MINOR			(1)
 
 /* Relaxed governor macros */
