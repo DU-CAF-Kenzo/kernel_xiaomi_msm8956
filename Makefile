@@ -585,8 +585,28 @@ else
 KBUILD_CFLAGS	+= -O2
 endif
 
+# Optimisation flags
+KBUILD_CFLAGS	+= -g0 -DNDEBUG \
+		   -fgraphite \
+		   -fgraphite-identity \
+		   -fivopts \
+		   -floop-block \
+		   -floop-interchange \
+		   -floop-strip-mine \
+		   -fmodulo-sched \
+		   -fmodulo-sched-allow-regmoves \
+		   -fomit-frame-pointer \
+		   -ftree-loop-distribution \
+		   -ftree-loop-linear
+
+# Strip linker
+LDFLAGS		+= --strip-debug -O2
+
 # Disable all maybe-uninitialized warnings
 KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
+
+# Disable unused-constant-variable warnings
+KBUILD_CFLAGS	+= $(call cc-disable-warning,unused-const-variable,)
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
