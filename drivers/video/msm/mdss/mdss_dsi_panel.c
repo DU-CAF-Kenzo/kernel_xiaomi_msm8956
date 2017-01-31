@@ -21,7 +21,7 @@
 #include <linux/leds.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
-
+#include <linux/display_state.h>
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
 
@@ -39,6 +39,14 @@ char g_lcm_id[128];
 #endif
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
+
+bool display_on = true;
+ 
+ bool is_display_on()
+ {
+ 	return display_on;
+ }
+ 
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
 
@@ -740,6 +748,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+        display_on = true;
 
 	pinfo = &pdata->panel_info;
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
@@ -823,7 +832,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
-
+        display_on = false;
 	pinfo = &pdata->panel_info;
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
