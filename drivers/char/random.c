@@ -1833,7 +1833,7 @@ unsigned long get_random_long(void)
 
 	hash = get_cpu_var(get_random_int_hash);
 
-	hash[0] += current->pid + jiffies + get_cycles();
+	hash[0] += current->pid + jiffies + random_get_entropy();
 	md5_transform(hash, random_int_secret);
 	ret = *(unsigned long *)hash;
 	put_cpu_var(get_random_int_hash);
@@ -1870,18 +1870,12 @@ void add_hwgenerator_randomness(const char *buffer, size_t count,
 {
 	struct entropy_store *poolp = &input_pool;
 
-	if (unlikely(nonblocking_pool.initialized == 0))
-		poolp = &nonblocking_pool;
-	else {
-		/* Suspend writing if we're above the trickle
-		 * threshold.  We'll be woken up again once below
-		 * random_write_wakeup_thresh, or when the calling
-		 * thread is about to terminate.
-		 */
-		wait_event_interruptible(random_write_wait,
-					 kthread_should_stop() ||
+	/* Suspend writing if we're above the trickle threshold.
+	 * We'll be woken up again once below random_write_wakeup_thresh,
+	 * or when the calling thread is about to terminate.
+	 */
+	wait_event_interruptible(random_write_wait, kthread_should_stop() ||
 			ENTROPY_BITS(&input_pool) <= random_write_wakeup_bits);
-	}
 	mix_pool_bytes(poolp, buffer, count);
 	credit_entropy_bits(poolp, entropy);
 }
