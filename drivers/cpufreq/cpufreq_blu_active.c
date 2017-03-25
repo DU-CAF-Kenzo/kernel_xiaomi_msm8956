@@ -32,6 +32,8 @@
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/state_notifier.h>
+static struct notifier_block blu_active_state_notif;
 
 struct cpufreq_blu_active_cpuinfo {
 	struct timer_list cpu_timer;
@@ -64,6 +66,7 @@ static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
+static bool suspended = false;
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -159,7 +162,7 @@ static void cpufreq_blu_active_timer_resched(
 	expires = round_to_nw_start(pcpu->last_evaluated_jiffy, tunables);
 	mod_timer_pinned(&pcpu->cpu_timer, expires);
 
-	if (tunables->timer_slack_val >= 0 &&
+	if (!suspended && tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
 		expires += usecs_to_jiffies(tunables->timer_slack_val);
 		mod_timer_pinned(&pcpu->cpu_slack_timer, expires);
@@ -181,7 +184,7 @@ static void cpufreq_blu_active_timer_start(
 
 	pcpu->cpu_timer.expires = expires;
 	add_timer_on(&pcpu->cpu_timer, cpu);
-	if (tunables->timer_slack_val >= 0 &&
+	if (!suspended && tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
 		expires += usecs_to_jiffies(tunables->timer_slack_val);
 		pcpu->cpu_slack_timer.expires = expires;
@@ -397,7 +400,7 @@ static void cpufreq_blu_active_timer(unsigned long data)
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 
-	if (cpu_load >= tunables->go_hispeed_load) {
+	if (cpu_load >= tunables->go_hispeed_load&& !suspended) {
 		if (pcpu->policy->cur < tunables->hispeed_freq) {
 			new_freq = tunables->hispeed_freq;
 		} else {
@@ -1315,6 +1318,26 @@ static void cpufreq_blu_active_nop_timer(unsigned long data)
 {
 }
 
+static int state_notifier_callback(struct notifier_block *this,
+				unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init cpufreq_blu_active_init(void)
 {
 	unsigned int i;
@@ -1333,6 +1356,10 @@ static int __init cpufreq_blu_active_init(void)
 		spin_lock_init(&pcpu->target_freq_lock);
 		init_rwsem(&pcpu->enable_sem);
 	}
+
+	blu_active_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&blu_active_state_notif))
+		pr_err("Failed to register State notifier callback\n");
 
 	spin_lock_init(&speedchange_cpumask_lock);
 	mutex_init(&gov_lock);
