@@ -17,23 +17,38 @@
 #include <linux/types.h>
 #include <trace/events/power.h>
 #include <linux/moduleparam.h>
+#include <linux/state_notifier.h>
 
 #include "power.h"
 
-static bool enable_qcom_rx_wakelock_ws = true;
-module_param(enable_qcom_rx_wakelock_ws, bool, 0644);
-static bool enable_wlan_extscan_wl_ws = true;
-module_param(enable_wlan_extscan_wl_ws, bool, 0644);
+static bool enable_wlan_rx_wake_ws = true;
+module_param(enable_wlan_rx_wake_ws, bool, 0644);
+static bool enable_wlan_ctrl_wake_ws = true;
+module_param(enable_wlan_ctrl_wake_ws, bool, 0644);
+static bool enable_wlan_wake_ws = true;
+module_param(enable_wlan_wake_ws, bool, 0644);
+static bool enable_bluedroid_timer_ws = true;
+module_param(enable_bluedroid_timer_ws, bool, 0644);
 static bool enable_ipa_ws = true;
 module_param(enable_ipa_ws, bool, 0644);
-static bool enable_wlan_ws = true;
-module_param(enable_wlan_ws, bool, 0644);
+static bool enable_qcom_rx_wakelock_ws = true;
+module_param(enable_qcom_rx_wakelock_ws, bool, 0644);
+static bool enable_msm_hsic_ws = true;
+module_param(enable_msm_hsic_ws, bool, 0644);
 static bool enable_timerfd_ws = true;
 module_param(enable_timerfd_ws, bool, 0644);
 static bool enable_netlink_ws = true;
 module_param(enable_netlink_ws, bool, 0644);
-static bool enable_netmgr_wl_ws = true;
-module_param(enable_netmgr_wl_ws, bool, 0644);
+static bool enable_wlan_wow_wl_ws = true;
+module_param(enable_wlan_wow_wl_ws, bool, 0644);
+static bool enable_wlan_extscan_wl_ws = true;
+module_param(enable_wlan_extscan_wl_ws, bool, 0644);
+static bool enable_si_ws = true;
+module_param(enable_si_ws, bool, 0644);
+
+/* State Notifier Support */
+static struct notifier_block wakeup_state_notif;
+static bool suspended = false;
 
 /*
  * If set, the suspend/hibernate code will abort transitions to a sleep state
@@ -402,12 +417,12 @@ EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
 #ifdef CONFIG_PM_AUTOSLEEP
 static void update_prevent_sleep_time(struct wakeup_source *ws, ktime_t now)
 {
-	ktime_t delta = ktime_sub(now, ws->start_prevent_time);
-	ws->prevent_sleep_time = ktime_add(ws->prevent_sleep_time, delta);
+        ktime_t delta = ktime_sub(now, ws->start_prevent_time);
+        ws->prevent_sleep_time = ktime_add(ws->prevent_sleep_time, delta);
 }
 #else
 static inline void update_prevent_sleep_time(struct wakeup_source *ws,
-					     ktime_t now) {}
+                                             ktime_t now) {}
 #endif
 
 /**
@@ -420,64 +435,91 @@ static inline void update_prevent_sleep_time(struct wakeup_source *ws,
  */
 static void wakeup_source_deactivate(struct wakeup_source *ws)
 {
-	unsigned int cnt, inpr, cec;
-	ktime_t duration;
-	ktime_t now;
+        unsigned int cnt, inpr, cec;
+        ktime_t duration;
+        ktime_t now;
 
-	ws->relax_count++;
-	/*
-	 * __pm_relax() may be called directly or from a timer function.
-	 * If it is called directly right after the timer function has been
-	 * started, but before the timer function calls __pm_relax(), it is
-	 * possible that __pm_stay_awake() will be called in the meantime and
-	 * will set ws->active.  Then, ws->active may be cleared immediately
-	 * by the __pm_relax() called from the timer function, but in such a
-	 * case ws->relax_count will be different from ws->active_count.
-	 */
-	if (ws->relax_count != ws->active_count) {
-		ws->relax_count--;
-		return;
-	}
+        ws->relax_count++;
+        /*
+         * __pm_relax() may be called directly or from a timer function.
+         * If it is called directly right after the timer function has been
+         * started, but before the timer function calls __pm_relax(), it is
+         * possible that __pm_stay_awake() will be called in the meantime and
+         * will set ws->active.  Then, ws->active may be cleared immediately
+         * by the __pm_relax() called from the timer function, but in such a
+         * case ws->relax_count will be different from ws->active_count.
+         */
+        if (ws->relax_count != ws->active_count) {
+                ws->relax_count--;
+                return;
+        }
 
-	ws->active = false;
+        ws->active = false;
 
-	now = ktime_get();
-	duration = ktime_sub(now, ws->last_time);
-	ws->total_time = ktime_add(ws->total_time, duration);
-	if (ktime_to_ns(duration) > ktime_to_ns(ws->max_time))
-		ws->max_time = duration;
+        now = ktime_get();
+        duration = ktime_sub(now, ws->last_time);
+        ws->total_time = ktime_add(ws->total_time, duration);
+        if (ktime_to_ns(duration) > ktime_to_ns(ws->max_time))
+                ws->max_time = duration;
 
-	ws->last_time = now;
-	del_timer(&ws->timer);
-	ws->timer_expires = 0;
+        ws->last_time = now;
+        del_timer(&ws->timer);
+        ws->timer_expires = 0;
 
-	if (ws->autosleep_enabled)
-		update_prevent_sleep_time(ws, now);
+        if (ws->autosleep_enabled)
+                update_prevent_sleep_time(ws, now);
 
-	/*
-	 * Increment the counter of registered wakeup events and decrement the
-	 * couter of wakeup events in progress simultaneously.
-	 */
-	cec = atomic_add_return(MAX_IN_PROGRESS, &combined_event_count);
-	trace_wakeup_source_deactivate(ws->name, cec);
+        /*
+         * Increment the counter of registered wakeup events and decrement the
+         * couter of wakeup events in progress simultaneously.
+         */
+        cec = atomic_add_return(MAX_IN_PROGRESS, &combined_event_count);
+        trace_wakeup_source_deactivate(ws->name, cec);
 
-	split_counters(&cnt, &inpr);
-	if (!inpr && waitqueue_active(&wakeup_count_wait_queue))
-		wake_up(&wakeup_count_wait_queue);
+        split_counters(&cnt, &inpr);
+        if (!inpr && waitqueue_active(&wakeup_count_wait_queue))
+                wake_up(&wakeup_count_wait_queue);
 }
 
-/**
- * wakeup_source_not_registered - validate the given wakeup source.
- * @ws: Wakeup source to be validated.
- */
-static bool wakeup_source_not_registered(struct wakeup_source *ws)
+static bool wakeup_source_blocker(struct wakeup_source *ws)
 {
-	/*
-	 * Use timer struct to check if the given source is initialized
-	 * by wakeup_source_add.
-	 */
-	return ws->timer.function != pm_wakeup_timer_fn ||
-		   ws->timer.data != (unsigned long)ws;
+	unsigned int wslen = 0;
+
+	if (ws) {
+		wslen = strlen(ws->name);
+
+		if ((!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", wslen)) ||
+			(!enable_msm_hsic_ws &&
+				!strncmp(ws->name, "msm_hsic_host", wslen)) ||
+			(!enable_wlan_rx_wake_ws &&
+				!strncmp(ws->name, "wlan_rx_wake", wslen)) ||
+			(!enable_wlan_ctrl_wake_ws &&
+				!strncmp(ws->name, "wlan_ctrl_wake", wslen)) ||
+			(!enable_wlan_wake_ws &&
+				!strncmp(ws->name, "wlan_wake", wslen)) ||
+			(!enable_bluedroid_timer_ws &&
+				!strncmp(ws->name, "bluedroid_timer", wslen)) ||
+			(!enable_timerfd_ws &&
+				!strncmp(ws->name, "[timerfd]", wslen)) ||
+			(!enable_wlan_wow_wl_ws &&
+				!strncmp(ws->name, "[wlan_wow_wl]", wslen)) ||
+			(!enable_wlan_extscan_wl_ws &&
+				!strncmp(ws->name, "[wlan_extscan_wl]", wslen)) ||
+			(!enable_si_ws &&
+				!strncmp(ws->name, "[sensor_ind]", wslen)) ||
+			(!enable_netlink_ws &&
+				!strncmp(ws->name, "NETLINK", wslen))) {
+			if (ws->active) {
+				wakeup_source_deactivate(ws);
+				pr_info("forcefully deactivate wakeup source: %s\n",
+					ws->name);
+			}
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /*
@@ -520,14 +562,6 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
 
-	if (WARN(wakeup_source_not_registered(ws),
-			"unregistered wakeup source\n"))
-		return;
-
-	if (WARN(wakeup_source_not_registered(ws),
-			"unregistered wakeup source\n"))
-		return;
-
 	/*
 	 * active wakeup source should bring the system
 	 * out of PM_SUSPEND_FREEZE state
@@ -544,39 +578,6 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	cec = atomic_inc_return(&combined_event_count);
 
 	trace_wakeup_source_activate(ws->name, cec);
-}
-
-static bool wakeup_source_blocker(struct wakeup_source *ws)
-{
-	unsigned int wslen = 0;
-
-	if (ws) {
-		wslen = strlen(ws->name);
-
-		if ((!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", wslen)) ||
-			(!enable_wlan_extscan_wl_ws &&
-				!strncmp(ws->name, "wlan_extscan_wl", wslen)) ||
-			(!enable_qcom_rx_wakelock_ws &&
-				!strncmp(ws->name, "qcom_rx_wakelock", wslen)) ||
-			(!enable_wlan_ws &&
-				!strncmp(ws->name, "wlan", wslen)) ||
-			(!enable_netmgr_wl_ws &&
-                                !strncmp(ws->name, "netmgr_wl", wslen)) ||
-			(!enable_timerfd_ws &&
-				!strncmp(ws->name, "[timerfd]", wslen)) ||
-			(!enable_netlink_ws &&
-				!strncmp(ws->name, "NETLINK", wslen))) {
-			if (ws->active) {
-				wakeup_source_deactivate(ws);
-				pr_info("forcefully deactivate wakeup source: %s\n",
-					ws->name);
-			}
-
-			return true;
-		}
-	}
-
-	return false;
 }
 
 /**
@@ -810,11 +811,16 @@ void pm_print_active_wakeup_sources(void)
 	int active = 0;
 	struct wakeup_source *last_activity_ws = NULL;
 
+	// kinda pointless to force this routine during screen on
+	if (!suspended)
+		return;
+
 	rcu_read_lock();
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
 		if (ws->active) {
 			pr_info("active wakeup source: %s\n", ws->name);
-			active = 1;
+			if (!wakeup_source_blocker(ws))
+				active = 1;
 		} else if (!active &&
 			   (!last_activity_ws ||
 			    ktime_to_ns(ws->last_time) >
@@ -1089,10 +1095,36 @@ static const struct file_operations wakeup_sources_stats_fops = {
 	.release = single_release,
 };
 
+static int state_notifier_callback(struct notifier_block *this,
+	unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init wakeup_sources_debugfs_init(void)
 {
 	wakeup_sources_stats_dentry = debugfs_create_file("wakeup_sources",
 			S_IRUGO, NULL, NULL, &wakeup_sources_stats_fops);
+
+	/* Register Wakeup to State Notifier */
+	wakeup_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&wakeup_state_notif))
+		pr_err("Failed to register State notifier callback\n");
+
 	return 0;
 }
 
