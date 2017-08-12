@@ -1665,7 +1665,7 @@ static inline int upmigrate_discouraged(struct task_struct *p)
 
 #endif
 
-static __always_inline int get_shadow_based_sched_upmigrate(void)
+static __always_inline unsigned int get_shadow_based_sched_upmigrate(void)
 {
 	if (sched_shadow_active)
 		return sched_shadow_upmigrate;
@@ -1673,7 +1673,7 @@ static __always_inline int get_shadow_based_sched_upmigrate(void)
 		return sched_upmigrate;
 }
 
-static __always_inline int get_shadow_based_sched_downmigrate(void)
+static __always_inline unsigned int get_shadow_based_sched_downmigrate(void)
 {
 	if (sched_shadow_active)
 		return sched_shadow_downmigrate;
