@@ -636,11 +636,10 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 extern ssize_t cpu_clock_get_vdd(char *buf);
 extern ssize_t cpu_clock_set_vdd(const char *buf, size_t count);
 
-static bool enable_voltage_control = false;
+static bool enable_voltage_control = true;
 module_param(enable_voltage_control, bool, 0664);
 
 static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf)
@@ -656,7 +655,23 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 
 	return cpu_clock_set_vdd(buf, count);
 }
-#endif
+
+extern ssize_t gpu_clock_get_vdd(char *buf);
+extern ssize_t gpu_clock_set_vdd(const char *buf, size_t count);
+
+static ssize_t show_GPU_mV_table(struct cpufreq_policy *policy, char *buf)
+{
+	return gpu_clock_get_vdd(buf);
+}
+
+static ssize_t store_GPU_mV_table(struct cpufreq_policy *policy,
+	const char *buf, size_t count)
+{
+	if (!enable_voltage_control)
+		return pr_info("Voltage control is disabled.\n");
+
+	return gpu_clock_set_vdd(buf, count);
+}
 
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
@@ -672,9 +687,8 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 cpufreq_freq_attr_rw(UV_mV_table);
-#endif
+cpufreq_freq_attr_rw(GPU_mV_table);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -688,9 +702,8 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 	&UV_mV_table.attr,
-#endif
+	&GPU_mV_table.attr,
 	NULL
 };
 
