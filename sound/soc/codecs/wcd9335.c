@@ -12381,10 +12381,18 @@ static ssize_t headphone_gain_store(struct kobject *kobj,
 	if (input_r < -84 || input_r > 20)
 		input_r = 0;
 
-	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX1_RX_VOL_MIX_CTL, input_l);
-	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX2_RX_VOL_MIX_CTL, input_r);
 	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX1_RX_VOL_CTL, input_l);
 	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX2_RX_VOL_CTL, input_r);
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX1_RX_VOL_MIX_CTL, input_l);
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX2_RX_VOL_MIX_CTL, input_r);
+
+	pr_info("Sound Control: Boosted Headphones Left RX1 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_RX1_RX_VOL_CTL));
+
+	pr_info("Sound Control: Boosted Headphones Right RX2 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_RX2_RX_VOL_CTL));
 
 	return count;
 }
@@ -12437,7 +12445,7 @@ static ssize_t mic_gain_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-		snd_soc_read(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_CTL));
+		snd_soc_read(sound_control_codec_ptr, WCD9335_CDC_TX6_TX_VOL_CTL));
 }
 
 static ssize_t mic_gain_store(struct kobject *kobj,
@@ -12450,7 +12458,19 @@ static ssize_t mic_gain_store(struct kobject *kobj,
 	if (input < -10 || input > 20)
 		input = 0;
 
-	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_CTL, input);
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_TX6_TX_VOL_CTL, input);
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_TX7_TX_VOL_CTL, input);
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_TX0_TX_VOL_CTL, input);
+
+	pr_info("Sound Control: Boosted Primary Mic TX6 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_TX6_TX_VOL_CTL));
+	pr_info("Sound Control: Boosted Secondary Mic TX7 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_TX7_TX_VOL_CTL));
+	pr_info("Sound Control: Boosted External Wired Mic TX0 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_TX0_TX_VOL_CTL));
 
 	return count;
 }
@@ -12464,7 +12484,7 @@ static ssize_t earpiece_gain_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-		snd_soc_read(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_MIX_CTL));
+		snd_soc_read(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_CTL));
 }
 
 static ssize_t earpiece_gain_store(struct kobject *kobj,
@@ -12477,7 +12497,12 @@ static ssize_t earpiece_gain_store(struct kobject *kobj,
 	if (input < -10 || input > 20)
 		input = 0;
 
+	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_CTL, input);
 	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX0_RX_VOL_MIX_CTL, input);
+
+	pr_info("Sound Control: Boosted Earpiece RX0 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_RX0_RX_VOL_CTL));
 
 	return count;
 }
@@ -12507,6 +12532,10 @@ static ssize_t speaker_gain_store(struct kobject *kobj,
 
 	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX6_RX_VOL_CTL, input);
 	snd_soc_write(sound_control_codec_ptr, WCD9335_CDC_RX6_RX_VOL_MIX_CTL, input);
+
+	pr_info("Sound Control: Boosted Speaker RX6 value %d\n",
+		snd_soc_read(sound_control_codec_ptr,
+		WCD9335_CDC_RX6_RX_VOL_CTL));
 
 	return count;
 }
