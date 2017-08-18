@@ -295,6 +295,7 @@ struct qpnp_hap {
 	struct qpnp_pwm_info pwm_info;
 	struct mutex lock;
 	struct mutex wf_lock;
+	struct completion completion;
 	spinlock_t td_lock;
 	struct work_struct td_work;
 	enum qpnp_hap_mode play_mode;
