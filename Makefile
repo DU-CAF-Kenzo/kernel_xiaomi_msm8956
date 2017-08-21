@@ -380,8 +380,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Wno-format-security -Wno-format \
 		   -fno-delete-null-pointer-checks \
                    -Wno-unused-variable -Wno-return-local-addr \
-                   -Wno-unused-function \
-                   -Wno-array-bounds -Wno-incompatible-pointer-types \
+                   -Wno-unused-function -Wno-array-bounds \
 		   -std=gnu89
 
 KBUILD_AFLAGS_KERNEL :=
