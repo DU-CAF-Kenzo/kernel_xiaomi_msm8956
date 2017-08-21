@@ -379,36 +379,10 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security -Wno-format \
 		   -fno-delete-null-pointer-checks \
-                   -Wno-memset-transposed-args -Wno-bool-compare \
-                   -Wno-logical-not-parentheses -Wno-discarded-array-qualifiers \
                    -Wno-unused-variable -Wno-return-local-addr \
                    -Wno-unused-function \
                    -Wno-array-bounds -Wno-incompatible-pointer-types \
-                   -Wno-misleading-indentation -Wno-tautological-compare \
-                   -Wno-error=misleading-indentation -Wno-parentheses \
-                   -mcpu=cortex-a72.cortex-a53+crc+crypto \
 		   -std=gnu89
-
-# Optimization setup
-KBUILD_CFLAGS	+= -O2 -g0 -DNDEBUG \
-		   -fgraphite \
- 		   -fgraphite-identity \
-		   -fivopts \
-		   -floop-block \
-		   -floop-interchange \
-		   -floop-strip-mine \
-		   -fmodulo-sched \
-		   -fmodulo-sched-allow-regmoves \
-		   -fomit-frame-pointer \
-		   -ftree-loop-distribution \
-		   -ftree-loop-linear
-
-# These flags need a special toolchain so split them off
-KBUILD_CFLAGS	+= $(call cc-option,-mlow-precision-recip-sqrt,) \
-		   $(call cc-option,-mpc-relative-literal-loads,)
-
-# Strip linker
-LD		+= --strip-debug -O2
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
