@@ -1582,7 +1582,7 @@ static int cpu_pmu_notify(struct notifier_block *b,
 	return ret;
 }
 
-static struct notifier_block __cpuinitdata cpu_pmu_hotplug_notifier = {
+static struct notifier_block cpu_pmu_hotplug_notifier = {
 	.notifier_call = cpu_pmu_notify,
 };
 
