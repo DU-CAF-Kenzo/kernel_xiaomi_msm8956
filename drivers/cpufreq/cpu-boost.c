@@ -48,7 +48,6 @@ static bool sched_boost_active;
 
 static struct delayed_work input_boost_rem;
 static u64 last_input_time;
-static bool input_boost_pending;;
 static struct kthread_worker cpu_boost_worker;
 static struct task_struct *cpu_boost_worker_thread;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
@@ -183,9 +182,6 @@ static void do_input_boost_rem(struct work_struct *work)
 	/* Update policies for all online CPUs */
 	update_policy_online();
 
-	if (input_boost_pending)
-		return;
-
 	sched_set_shadow_active(false);
 
 	if (sched_boost_active) {
@@ -200,8 +196,6 @@ static void do_input_boost(struct kthread_work *work)
 {
 	unsigned int i, ret;
 	struct cpu_sync *i_sync_info;
-
-	input_boost_pending = true;
 
 	if (!input_boost_ms)
 		return;
@@ -221,8 +215,6 @@ static void do_input_boost(struct kthread_work *work)
 
 	/* Update policies for all online CPUs */
 	update_policy_online();
-
-	input_boost_pending = false;
 
 	sched_set_shadow_active(true);
 
