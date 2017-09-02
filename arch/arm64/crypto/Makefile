@@ -8,12 +8,6 @@
 # published by the Free Software Foundation.
 #
 
-ARM_ARCH_OPT1 := -mcpu=cortex-a72.cortex-a53+crypto
-GEN_OPT_FLAGS1 := $(call cc-option,$(ARM_ARCH_OPT1),-march=armv8-a+crc+crypto)
-
-ARM_ARCH_OPT2 := -mcpu=cortex-a72.cortex-a53+crc
-GEN_OPT_FLAGS2 := $(call cc-option,$(ARM_ARCH_OPT2),-march=armv8-a+crc+crypto)
-
 obj-$(CONFIG_CRYPTO_SHA1_ARM64_CE) += sha1-ce.o
 sha1-ce-y := sha1-ce-glue.o sha1-ce-core.o
 
@@ -33,7 +27,7 @@ obj-$(CONFIG_CRYPTO_CRC32_ARM64_CE) += crc32-ce.o
 crc32-ce-y:= crc32-ce-core.o crc32-ce-glue.o
 
 obj-$(CONFIG_CRYPTO_AES_ARM64_CE) += aes-ce-cipher.o
-CFLAGS_aes-ce-cipher.o += $(GEN_OPT_FLAGS1)
+CFLAGS_aes-ce-cipher.o += -march=armv8-a+crypto
 
 obj-$(CONFIG_CRYPTO_AES_ARM64_CE_CCM) += aes-ce-ccm.o
 aes-ce-ccm-y := aes-ce-ccm-glue.o aes-ce-ccm-core.o
