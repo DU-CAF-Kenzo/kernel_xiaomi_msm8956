@@ -377,8 +377,3 @@
 &pm8950_cajon_analog {
 	status = "disabled";
 };
-
-&msm_vidc {
-	qcom,pm-qos-latency-us = <501>;
-};
-
