@@ -588,8 +588,7 @@ static int driver_init_partial(struct gf_dev *gf_dev)
 	gf_power_on(gf_dev);
 	gf_hw_reset(gf_dev, 360);
 	gf_dev->device_available = 1;
-	sched_set_boost(1);
-	sched_set_boost(0);
+
 
 	return 0;
 
